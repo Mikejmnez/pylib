@@ -37,18 +37,18 @@ def power_spectral_density(time, signal, window_length=-1, overlap=0, \
 
     # if window_length is negative, use only 1 window
     if (window_length < 0):
-        window_length = t[-1]
+        window_length = t[-1] + dt
 
     # reduce window and overlap sizes to an integer multiple of the time step
     # make sure the overlap is not the same as the window (infinite windows)
     # determine number of windows
-    M = int(np.floor(window_length/dt))         # number of points in window
+    M = int(window_length // dt)         # number of points in window
     D = int(np.floor(M*overlap))                # number of overlapping points
     assert M > D, "there must be non-overlapping points in each window"
-    N = int(np.floor(np.size(t)/(M-D)))         # number of windows
+    N = int(np.size(t) // (M-D))         # number of windows
 
     # correct number of windows to keep from running off end of the array
-    No = np.size(t) - ((M-D)*N+M)
+    No = np.size(t) - ((M-D)*(N-1)+M)
     if No < 0:
         N = N - int( np.ceil(np.abs(No)/(M-D)) )
 
@@ -70,9 +70,9 @@ def power_spectral_density(time, signal, window_length=-1, overlap=0, \
     # calculate frequencies and preallocate power
     f = np.fft.rfftfreq(M, dt)                  # frequencies
     if np.mod(M,2):
-        Nfft = (M+1)/2                          # odd
+        Nfft = (M+1)//2                          # odd
     else:
-        Nfft = M/2+1                            # even
+        Nfft = M//2+1                            # even
     P = np.zeros(Nfft)
 
     # iterate through each window
