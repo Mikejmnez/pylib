@@ -1,8 +1,7 @@
 """
-A collection of useful functions
+Core functions for pylib
 """
 import numpy as np
-import matplotlib.pyplot as plt
 import warnings
 
 def power_spectral_density(time, signal, window_length=-1, overlap=0, \
