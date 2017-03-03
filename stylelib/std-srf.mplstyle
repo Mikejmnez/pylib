@@ -1,0 +1,29 @@
+# Figure size
+figure.figsize : 6.5, 4
+
+# Line and marker size
+lines.linewidth : 1
+lines.markersize : 10
+
+# Font sizes
+axes.titlesize : 10
+axes.labelsize : 10
+xtick.labelsize : 10
+ytick.labelsize : 10
+
+# Line styles
+axes.prop_cycle : cycler('color',['k','k','k','k','r','r','r','r']) + cycler('linestyle',['-', '--', '-.', ':','-', '--', '-.', ':'])
+
+# Specify fonts
+font.family : serif
+font.serif : CMU Serif, Times New Roman
+font.sans-serif : CMU Bright
+
+# Specify math fonts
+mathtext.fontset : custom
+mathtext.it : serif:italic
+# mathtext.cal : cursive
+# mathtext.rm  : serif
+# mathtext.tt  : monospace
+# mathtext.bf  : serif:bold
+# mathtext.sf  : sans
