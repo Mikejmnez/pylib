@@ -42,7 +42,7 @@ def power_spectral_density(time, signal, window_length=-1, overlap=0, \
     # make sure the overlap is not the same as the window (infinite windows)
     # determine number of windows
     M = int(window_length // dt)         # number of points in window
-    D = int(np.floor(M*overlap))                # number of overlapping points
+    D = int(np.floor(M*overlap))         # number of overlapping points
     assert M > D, "there must be non-overlapping points in each window"
     N = int(np.size(t) // (M-D))         # number of windows
 
