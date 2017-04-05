@@ -146,3 +146,9 @@ def moving_average(time, signal, window):
     avg = np.interp(time, t, avg)
 
     return avg
+
+def softplus(x):
+    """
+    Evaluates the softplus function ln(1 + e^x)
+    """
+    return np.log(1.0 + np.exp(x))
