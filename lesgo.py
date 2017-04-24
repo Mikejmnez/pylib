@@ -65,7 +65,7 @@ def param(folder):
 
     # Create the mesh
     lp['x'] = np.arange(0.0, lp['L_x'], lp['dx'])
-    lp['y'] = np.arange(0.0, lp['L_y'], lp['dx'])
+    lp['y'] = np.arange(0.0, lp['L_y'], lp['dy'])
     lp['z_w'] = np.arange(0.0, lp['L_z']+0.5*lp['dz'], lp['dz'])
     lp['z_uv'] = np.arange(0.5*lp['dz'], lp['L_z'], lp['dz'])
 
