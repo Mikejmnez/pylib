@@ -65,7 +65,7 @@ def param(folder):
 
     # Create the mesh
     lp['x'] = np.arange(0.0, lp['L_x'], lp['dx'])
-    lp['y'] = np.arange(0.0, lp['L_y'], lp['dx'])
+    lp['y'] = np.arange(0.0, lp['L_y'], lp['dy'])
     lp['z_w'] = np.arange(0.0, lp['L_z']+0.5*lp['dz'], lp['dz'])
     lp['z_uv'] = np.arange(0.5*lp['dz'], lp['L_z'], lp['dz'])
 
@@ -118,6 +118,32 @@ def turbine(folder, lp, N):
 
     # Return values
     return t
+    
+def vel_inst(folder, lp, step):
+    """
+    Returns u, v, and w on uv-grid for time step step in folder/output.
+    """
+    # Preallocate
+    u = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    v = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    w = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/vel.%i.c%i.bin' % (step, i)
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        Au = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        u[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Au[:,:,1:]
+
+        Av = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        v[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Av[:,:,1:]
+
+        Aw = np.reshape(A[2*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,1:]
+
+    return u, v, w
 
 def veluv_avg(folder, lp):
     """
@@ -144,3 +170,75 @@ def veluv_avg(folder, lp):
         w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,1:]
 
     return u, v, w
+    
+def velw_avg(folder, lp):
+    """
+    Returns w for w-averaged data in folder/output.
+    """
+    # Preallocate
+    w = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/velw_avg.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+        Aw = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,1:]
+
+    return w
+    
+def tau_avg(folder, lp):
+    """
+    Returns u, v, and w for uv-averaged data in folder/output.
+    """
+    # Preallocate
+    txx = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    txy = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    tyy = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    txz = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    tyz = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    tzz = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/tau_avg.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        Axx = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        txx[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axx[:,:,1:]
+
+        Axy = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        txy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axy[:,:,1:]
+        
+        Ayy = np.reshape(A[2*N:3*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        tyy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayy[:,:,1:]
+        
+        Axz = np.reshape(A[3*N:4*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        txz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axz[:,:,1:]
+        
+        Ayz = np.reshape(A[4*N:5*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        tyz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayz[:,:,1:]
+        
+        Azz = np.reshape(A[5*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        tzz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Azz[:,:,1:]
+
+    return txx, txy, tyy, txz, tyz, tzz
+    
+def pressure_avg(folder, lp):
+    """
+    Returns p for uv-averaged data in folder/output.
+    """
+    # Preallocate
+    p = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/pressure_avg.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+        Ap = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        p[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ap[:,:,1:]
+
+    return p
