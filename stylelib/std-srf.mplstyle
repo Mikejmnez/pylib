@@ -30,3 +30,7 @@ mathtext.fontset : cm
 #mathtext.tt : monospace
 #mathtext.bf : serif:italic
 #mathtext.sf : sans
+
+# Uncomment to not allow type 3 fonts.
+#pdf.fonttype : 42
+#ps.fonttype : 42

@@ -118,7 +118,7 @@ def turbine(folder, lp, N):
 
     # Return values
     return t
-    
+
 def vel_inst(folder, lp, step):
     """
     Returns u, v, and w on uv-grid for time step step in folder/output.
@@ -161,16 +161,16 @@ def veluv_avg(folder, lp):
         A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
 
         Au = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        u[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Au[:,:,1:]
+        u[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Au[:,:,:-1]
 
         Av = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        v[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Av[:,:,1:]
+        v[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Av[:,:,:-1]
 
         Aw = np.reshape(A[2*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,1:]
+        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,:-1]
 
     return u, v, w
-    
+
 def velw_avg(folder, lp):
     """
     Returns w for w-averaged data in folder/output.
@@ -184,10 +184,10 @@ def velw_avg(folder, lp):
         file = folder + '/output/velw_avg.c%i.bin' % i
         A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
         Aw = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,1:]
+        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,:-1]
 
     return w
-    
+
 def tau_avg(folder, lp):
     """
     Returns u, v, and w for uv-averaged data in folder/output.
@@ -207,25 +207,82 @@ def tau_avg(folder, lp):
         A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
 
         Axx = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        txx[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axx[:,:,1:]
+        txx[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axx[:,:,:-1]
 
         Axy = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        txy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axy[:,:,1:]
-        
+        txy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axy[:,:,:-1]
+
         Ayy = np.reshape(A[2*N:3*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        tyy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayy[:,:,1:]
-        
+        tyy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayy[:,:,:-1]
+
         Axz = np.reshape(A[3*N:4*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        txz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axz[:,:,1:]
-        
+        txz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axz[:,:,:-1]
+
         Ayz = np.reshape(A[4*N:5*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        tyz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayz[:,:,1:]
-        
+        tyz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayz[:,:,:-1]
+
         Azz = np.reshape(A[5*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        tzz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Azz[:,:,1:]
+        tzz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Azz[:,:,:-1]
 
     return txx, txy, tyy, txz, tyz, tzz
-    
+
+def rs_avg(folder, lp):
+    """
+    Returns u, v, and w for uv-averaged data in folder/output.
+    """
+    # Preallocate
+    u2 = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    v2 = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    w2 = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    uw = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    vw = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    uv = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/rs.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        Axx = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        u2[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axx[:,:,:-1]
+
+        Axy = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        v2[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axy[:,:,:-1]
+
+        Ayy = np.reshape(A[2*N:3*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        w2[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayy[:,:,:-1]
+
+        Axz = np.reshape(A[3*N:4*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        uw[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Axz[:,:,:-1]
+
+        Ayz = np.reshape(A[4*N:5*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        vw[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ayz[:,:,:-1]
+
+        Azz = np.reshape(A[5*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        uv[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Azz[:,:,:-1]
+
+    return u2, v2, w2, uw, vw, uv
+
+def vel_zplane(folder, lp, step, zl):
+    """
+    Returns u, v, and w at z-plane zl at time step step in folder/output.
+    """
+    # Preallocate
+    u = np.zeros((lp['nx'],lp['ny']))
+    v = np.zeros((lp['nx'],lp['ny']))
+    w = np.zeros((lp['nx'],lp['ny']))
+
+    N = lp['nx']*lp['ny']
+    file = folder + '/output/vel.z-%0.5f.%i.c3.bin' % (zl, step)
+    A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+    u = np.reshape(A[0:N],(lp['nx'],lp['ny']),order='F')
+    v = np.reshape(A[N:2*N],(lp['nx'],lp['ny']),order='F')
+    w = np.reshape(A[2*N:3*N],(lp['nx'],lp['ny']),order='F')
+
+    return u, v, w
+
 def pressure_avg(folder, lp):
     """
     Returns p for uv-averaged data in folder/output.

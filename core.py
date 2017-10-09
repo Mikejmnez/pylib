@@ -67,7 +67,7 @@ def power_spectral_density(time, signal, window_length=-1, overlap=0, \
         W = np.ones(M)
 
     # calculate frequencies and preallocate power
-    f = np.fft.rfftfreq(M, dt)                  # frequencies
+    f = np.fft.rfftfreq(M, dt)                   # frequencies
     if np.mod(M,2):
         Nfft = (M+1)//2                          # odd
     else:
@@ -76,7 +76,7 @@ def power_spectral_density(time, signal, window_length=-1, overlap=0, \
 
     # iterate through each window
     for i in range(0, N):
-        P = P + np.abs(np.fft.rfft(np.multiply(W, v[(M-D)*i:(M-D)*i+M])))/N
+        P = P + np.abs(np.fft.rfft(np.multiply(W, v[(M-D)*i:(M-D)*i+M])))**2/N
 
     # return frequency and power
     return [f, P]
