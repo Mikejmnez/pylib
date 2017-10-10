@@ -152,3 +152,56 @@ def softplus(x):
     Evaluates the softplus function ln(1 + e^x)
     """
     return np.log(1.0 + np.exp(x))
+
+class TDMA:
+    """
+    A class to solve a tridiagonal matrix system Ax=d using the tridiagonal
+    matrix algorithm. A is a matrix of the form:
+          --                                    --
+          | b0      c0                           |
+          | a1      b1      c1                   |
+    A =   |         ...     ...     ...          |
+          |                 an-2    bn-2    cn-2 |
+          |                         an-1    bn-1 |
+          --                                    --
+    On construction, the vectors a, b, and c must have the same length. a must
+    have 0 in its first element, and c must have 0 in its last element.
+    """
+    def __init__(self, a, b, c):
+        # Check inputs
+        assert np.size(b) == np.size(a), "b must be the same size as a"
+        assert np.size(c) == np.size(a), "c must be the same size as a"
+        assert a[0] == 0.0, "a's first element must contain 0"
+        assert c[-1] == 0.0, "c's last element must contain 0"
+
+        # Assign matrices to object
+        self.n = np.size(a)
+        self.a = a
+        self.b = b
+        self.c = c
+        self.cp = np.zeros(np.shape(a))
+
+        # Do a forward sweep
+        self.cp[0] = c[0] / b[0]
+        for i in range(1, self.n):
+            self.cp[i] = c[i] / (b[i] - a[i]*self.cp[i-1])
+
+    def solve(self, d):
+        # check inputs
+        assert np.size(d) == self.n, "d must have size %i" % self.n
+
+        # allocate array
+        x = np.array(d)
+        dp = np.array(d)
+
+        # Forward sweep
+        dp[0] = d[0] / self.b[0]
+        for i in range(1, self.n):
+            dp[i] = (d[i] - self.a[i]*dp[i-1]) / (self.b[i] - self.a[i]*self.cp[i-1])
+
+        # Backward sweep
+        x[-1] = dp[-1]
+        for i in range(self.n-2,-1,-1):
+            x[i] = dp[i] - self.cp[i]*x[i+1]
+
+        return x
