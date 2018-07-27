@@ -37,8 +37,9 @@ def param(folder):
 
             # now add to param and val list
             for i in range(0, len(p)):
-                param.append(p[i])
-                value.append(v[i])
+                if (len(p) == len(v)):
+                    param.append(p[i])
+                    value.append(v[i])
 
     f.close()
 
@@ -241,6 +242,32 @@ def veluv_avg(folder, lp):
 
     return u, v, w
 
+def force_avg(folder, lp):
+    """
+    Returns force for uv-averaged data in folder/output.
+    """
+    # Preallocate
+    fx = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    fy = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    fz = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/force_avg.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        Au = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        fx[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Au[:,:,:-1]
+
+        Av = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        fy[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Av[:,:,:-1]
+
+        Aw = np.reshape(A[2*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        fz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,:-1]
+
+    return fx, fy, fz
+
 def velw_avg(folder, lp):
     """
     Returns w for w-averaged data in folder/output.
@@ -257,6 +284,24 @@ def velw_avg(folder, lp):
         w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[:,:,:-1]
 
     return w
+
+def pressure_avg(folder, lp):
+    """
+    Returns pressure for uv-averaged data in folder/output.
+    """
+    # Preallocate
+    p = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/pres_avg.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        Ap = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        p[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ap[:,:,:-1]
+
+    return p
 
 def tau_avg(folder, lp):
     """
@@ -352,20 +397,3 @@ def vel_zplane(folder, lp, step, zl):
     w = np.reshape(A[2*N:3*N],(lp['nx'],lp['ny']),order='F')
 
     return u, v, w
-
-def pressure_avg(folder, lp):
-    """
-    Returns p for uv-averaged data in folder/output.
-    """
-    # Preallocate
-    p = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
-
-    # Read the data
-    for i in range(0, lp['nproc']):
-        N = lp['nx']*lp['ny']*lp['nz']
-        file = folder + '/output/pressure_avg.c%i.bin' % i
-        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
-        Ap = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
-        p[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ap[:,:,0:-1]
-
-    return p
