@@ -1,5 +1,7 @@
 import numpy as np
 import re
+import scipy.io
+import scipy
 
 def param(folder):
     """
@@ -65,19 +67,29 @@ def param(folder):
                 lp[p] = '=f8'
 
     # Create the mesh
-    lp['x'] = np.arange(0.0, lp['L_x'], lp['dx'])
-    lp['y'] = np.arange(0.0, lp['L_y'], lp['dy'])
-    lp['z_w'] = np.arange(0.0, lp['L_z']+0.5*lp['dz'], lp['dz'])
+    lp['x'] = np.arange(0.0, lp['L_x']-0.1*lp['dx'], lp['dx'])
+    lp['y'] = np.arange(0.0, lp['L_y']-0.01*lp['dy'], lp['dy'])
+    lp['z_w'] = np.arange(0.0, lp['L_z']+0.51*lp['dz'], lp['dz'])
     lp['z_uv'] = np.arange(0.5*lp['dz'], lp['L_z'], lp['dz'])
 
     return lp
 
-def turbine(folder, lp, N):
+def turbine(folder, lp, N = -1):
     """
-    Reads the turbine files in folder/turbine with the parameters lp, and N is
-    turbines. Everything is rescaled to be dimensional where necessary
+    Reads the turbine files in folder/turbine and input_turbines/param.dat. lp
+    is the lesgio parameters dictionary. Everything is rescaled to be
+    dimensional where necessary
 
-    Each file has the following data:
+    N: Number of turbines
+    Nt: Number of time points
+
+    The param.dat file has the following data:
+        x: x location of turbine
+        y: y location of turbine
+        z: z location of turbine
+        D: Diameter of turbine
+
+    Each turbine file has the following data:
         t: current time (dimensional
         uc: disk center u velocity
         vc: disk center v velocity
@@ -91,27 +103,45 @@ def turbine(folder, lp, N):
         omega: rotational speed
     """
 
-    # Read the first file to get the number of time steps
+    # Create empty dictionary
     t = {}
+
+    # Read the input_param.dat file to get the number of turbines
+    A = np.loadtxt(folder + "/input_turbines/param.dat", delimiter=',')
+    if (N < 1):
+        t['N'] = np.size(A,0)
+        # Save the turbine locations and diameter
+        if (np.ndim(A) == 1):
+            A = np.array(A,ndmin=2)
+        print(A)
+        t['x'] = A[:,0]
+        t['y'] = A[:,1]
+        t['z'] = A[:,2]
+        t['D'] = A[:,3]
+    else:
+        t['N'] = N
+    print(t['N'])
+
+    # Read the first file to get the number of time steps
     A = np.loadtxt(folder + "/turbine/turbine_1.dat")
     t['t'] = A[:,0]
+    t['Nt'] = np.size(t['t'])
 
     # Preallocate
-    Nt = np.size(t['t'])
-    t['uc'] = np.zeros((Nt,N))*lp['u_star']
-    t['vc'] = np.zeros((Nt,N))
-    t['wc'] = np.zeros((Nt,N))
-    t['u_d'] = np.zeros((Nt,N))
-    t['u_d_T'] = np.zeros((Nt,N))
-    t['theta1'] = np.zeros((Nt,N))
-    t['theta2'] = np.zeros((Nt,N))
-    t['Ct_prime'] = np.zeros((Nt,N))
+    t['uc'] = np.zeros((t['Nt'],t['N']))*lp['u_star']
+    t['vc'] = np.zeros((t['Nt'],t['N']))
+    t['wc'] = np.zeros((t['Nt'],t['N']))
+    t['u_d'] = np.zeros((t['Nt'],t['N']))
+    t['u_d_T'] = np.zeros((t['Nt'],t['N']))
+    t['theta1'] = np.zeros((t['Nt'],t['N']))
+    t['theta2'] = np.zeros((t['Nt'],t['N']))
+    t['Ct_prime'] = np.zeros((t['Nt'],t['N']))
     if (np.size(A,1) > 9):
-        t['Cp_prime'] = np.zeros((Nt,N))
-        t['omega'] = np.zeros((Nt,N))
+        t['Cp_prime'] = np.zeros((t['Nt'],t['N']))
+        t['omega'] = np.zeros((t['Nt'],t['N']))
 
     # Read every turbine file
-    for i in range(0, N):
+    for i in range(0, t['N']):
         A = np.loadtxt(folder + "/turbine/turbine_" + str(i+1) + ".dat")
         t['uc'][:,i] = A[:,1]*lp['u_star']
         t['vc'][:,i] = A[:,2]*lp['u_star']
@@ -154,6 +184,51 @@ def vel_inst(folder, lp, step):
 
     return u, v, w
 
+def restart(folder, lp):
+    """
+    Returns u, v, and w on uv-grid for time step step in folder/output.
+    """
+    # Preallocate
+    u = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    v = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+    w = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        NN = (lp['nx']+2)*lp['ny']*lp['nz']
+        file = folder + '/vel.out.c%i' % i
+        A = scipy.io.FortranFile(file).read_reals()
+
+        Au = np.reshape(A[0:NN],(lp['nx']+2,lp['ny'],lp['nz']),order='F')
+        u[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Au[0:lp['nx'],:,0:-1]
+
+        Av = np.reshape(A[NN:2*NN],(lp['nx']+2,lp['ny'],lp['nz']),order='F')
+        v[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Av[0:lp['nx'],:,0:-1]
+
+        Aw = np.reshape(A[2*NN:3*NN],(lp['nx']+2,lp['ny'],lp['nz']),order='F')
+        w[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Aw[0:lp['nx'],:,0:-1]
+
+    return u, v, w
+
+def theta_inst(folder, lp, step):
+    """
+    Returns u, v, and w on uv-grid for time step step in folder/output.
+    """
+    # Preallocate
+    theta = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']-1))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/theta.%i.c%i.bin' % (step, i)
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        At = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        theta[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = At[:,:,0:-1]
+
+    return theta
+
 def pressure_inst(folder, lp, step):
     """
     Returns pressure on uv-grid for time step step in folder/output.
@@ -181,7 +256,7 @@ def vel_zplane(folder, lp, step, zl):
     w = np.zeros((lp['nx'],lp['ny']))
 
     N = lp['nx']*lp['ny']
-    file = folder + '/output/vel.z-%0.5f.%i.c3.bin' % (zl, step)
+    file = folder + '/output/vel.z-%0.5f.%i.c4.bin' % (zl, step)
     A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
 
     u = np.reshape(A[0:N],(lp['nx'],lp['ny']),order='F')
@@ -303,6 +378,32 @@ def pressure_avg(folder, lp):
 
     return p
 
+def vort_avg(folder, lp):
+    """
+    Returns pressure for w-averaged data in folder/output.
+    """
+    # Preallocate
+    vortx = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']))
+    vorty = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']))
+    vortz = np.zeros((lp['nx'],lp['ny'],lp['nz_tot']))
+
+    # Read the data
+    for i in range(0, lp['nproc']):
+        N = lp['nx']*lp['ny']*lp['nz']
+        file = folder + '/output/vort_avg.c%i.bin' % i
+        A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
+
+        Ax = np.reshape(A[0:N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        vortx[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ax[:,:,:-1]
+
+        Ay = np.reshape(A[N:2*N],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        vorty[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Ay[:,:,:-1]
+
+        Az = np.reshape(A[2*N:],(lp['nx'],lp['ny'],lp['nz']),order='F')
+        vortz[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Az[:,:,:-1]
+
+    return vortx, vorty, vortz
+
 def tau_avg(folder, lp):
     """
     Returns u, v, and w for uv-averaged data in folder/output.
@@ -378,22 +479,3 @@ def rs_avg(folder, lp):
         uv[:,:,i*(lp['nz']-1):(lp['nz']-1)*(i+1)] = Azz[:,:,:-1]
 
     return u2, v2, w2, uw, vw, uv
-
-def vel_zplane(folder, lp, step, zl):
-    """
-    Returns u, v, and w at z-plane zl at time step step in folder/output.
-    """
-    # Preallocate
-    u = np.zeros((lp['nx'],lp['ny']))
-    v = np.zeros((lp['nx'],lp['ny']))
-    w = np.zeros((lp['nx'],lp['ny']))
-
-    N = lp['nx']*lp['ny']
-    file = folder + '/output/vel.z-%0.5f.%i.c3.bin' % (zl, step)
-    A = np.fromfile(file, dtype=np.dtype(lp['write_endian']))
-
-    u = np.reshape(A[0:N],(lp['nx'],lp['ny']),order='F')
-    v = np.reshape(A[N:2*N],(lp['nx'],lp['ny']),order='F')
-    w = np.reshape(A[2*N:3*N],(lp['nx'],lp['ny']),order='F')
-
-    return u, v, w
