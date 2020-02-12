@@ -72,9 +72,130 @@ def param(folder):
     lp['z_w'] = np.arange(0.0, lp['L_z']+0.51*lp['dz'], lp['dz'])
     lp['z_uv'] = np.arange(0.5*lp['dz'], lp['L_z'], lp['dz'])
 
+    # Wavenumbers
+    lp['kx'] = np.fft.fftfreq(lp['nx'])*lp['nx']*2.0*np.pi/lp['L_x']
+    lp['ky'] = np.fft.rfftfreq(lp['ny'])*lp['ny']*2.0*np.pi/lp['L_y']
+
     return lp
 
-def turbine(folder, lp, N = -1):
+def ddx(lp,u):
+    """
+    Calculates spectral x derivatives
+    """
+
+    # Check size of variable
+    assert np.size(u,0) == lp['nx'], "variable is not on a valid grid"
+    assert np.size(u,1) == lp['ny'], "variable is not on a valid grid"
+
+    # Create arrays
+    dudx_hat = np.zeros((lp['nx'],lp['ny']//2+1),dtype=np.complex)
+    dudx = np.zeros(np.shape(u))
+
+    # Iterate through each z plane
+    for k in range(0, np.size(u,2)):
+        u_hat = np.fft.rfft2(u[:,:,k])
+        for i in range(0, np.size(lp['kx'])):
+            dudx_hat[i,:] = u_hat[i,:]*lp['kx'][i]*np.complex(0,1)
+        dudx_hat[:,-1] = np.complex(0,0)
+        dudx_hat[lp['nx']//2,:] = np.complex(0,0)
+        dudx[:,:,k] = np.fft.irfft2(dudx_hat)
+
+    return dudx
+
+def ddy(lp,u):
+    """
+    Calculates spectral y derivatives
+    """
+
+    # Check size of variable
+    assert np.size(u,0) == lp['nx'], "variable is not on a valid grid"
+    assert np.size(u,1) == lp['ny'], "variable is not on a valid grid"
+
+    # Create arrays
+    dudy_hat = np.zeros((lp['nx'],lp['ny']//2+1),dtype=np.complex)
+    dudy = np.zeros(np.shape(u))
+
+    # Iterate through each z plane
+    for k in range(0, np.size(u,2)):
+        u_hat = np.fft.rfft2(u[:,:,k])
+        for j in range(0, np.size(lp['ky'])):
+            dudy_hat[:,j] = u_hat[:,j]*lp['ky'][j]*np.complex(0,1)
+        dudy_hat[:,-1] = np.complex(0,0)
+        dudy_hat[lp['nx']//2,:] = np.complex(0,0)
+        dudy[:,:,k] = np.fft.irfft2(dudy_hat)
+
+    return dudy
+
+def ddxy(lp,u):
+    """
+    Calculates spectral x,y derivatives
+    """
+
+    # Check size of variable
+    assert np.size(u,0) == lp['nx'], "variable is not on a valid grid"
+    assert np.size(u,1) == lp['ny'], "variable is not on a valid grid"
+
+    # Create arrays
+    dudx_hat = np.zeros((lp['nx'],lp['ny']//2+1),dtype=np.complex)
+    dudx = np.zeros(np.shape(u))
+    dudy_hat = np.zeros((lp['nx'],lp['ny']//2+1),dtype=np.complex)
+    dudy = np.zeros(np.shape(u))
+
+    # Iterate through each z plane
+    for k in range(0, np.size(u,2)):
+        u_hat = np.fft.rfft2(u[:,:,k])
+        for i in range(0, np.size(lp['kx'])):
+            dudx_hat[i,:] = u_hat[i,:]*lp['kx'][i]*np.complex(0,1)
+        dudx_hat[:,-1] = np.complex(0,0)
+        dudx_hat[lp['nx']//2,:] = np.complex(0,0)
+        dudx[:,:,k] = np.fft.irfft2(dudx_hat)
+        for j in range(0, np.size(lp['ky'])):
+            dudy_hat[:,j] = u_hat[:,j]*lp['ky'][j]*np.complex(0,1)
+        dudy_hat[:,-1] = np.complex(0,0)
+        dudy_hat[lp['nx']//2,:] = np.complex(0,0)
+        dudy[:,:,k] = np.fft.irfft2(dudy_hat)
+
+    return dudx, dudy
+
+def ddz(lp,u):
+    """
+    Calculates finite differece z derivatives
+    """
+
+    # w grid -> uv grid
+    if (np.size(u,2) == lp['nz_tot']):
+        dudz = (u[:,:,1:] - u[:,:,0:-1])/lp['dz']
+    # uv grid -> w grid
+    elif (np.size(u,2) == lp['nz_tot']-1):
+        dudz = np.zeros((np.size(u,0),np.size(u,1),lp['nz_tot']))
+        dudz[:,:,1:-1] = (u[:,:,1:] - u[:,:,0:-1])/lp['dz']
+    # invalid grid
+    else:
+        assert False, "variable is not on a valid grid"
+
+    return dudz
+
+def interp_uv_to_w(lp,uv):
+    """
+    Interpolates from uv grid to w grid
+    """
+    assert np.size(uv,2) == lp['nz_tot']-1, "variable is not on a valid grid"
+    w = np.zeros((np.size(uv,0),np.size(uv,1),lp['nz_tot']))
+    w[:,:,1:-1] = 0.5*(uv[:,:,1:] + uv[:,:,:-1])
+
+    return w
+
+
+def interp_w_to_uv(lp,w):
+    """
+    Interpolates from uv grid to w grid
+    """
+    assert np.size(w,2) == lp['nz_tot'], "variable is not on a valid grid"
+    uv = 0.5*(w[:,:,1:] + w[:,:,:-1])
+
+    return uv
+
+def turbine(folder, lp, N=-1):
     """
     Reads the turbine files in folder/turbine and input_turbines/param.dat. lp
     is the lesgio parameters dictionary. Everything is rescaled to be
